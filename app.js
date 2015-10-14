@@ -1,11 +1,11 @@
 require('dotenv').load();
-var LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
+var FacebookStrategy = require('passport-facebook').Strategy;
 var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
-var bodyParser = require('body-parser');
+var bodyParser = require('body-parser');  
 var passport = require('passport');
 
 
@@ -29,43 +29,46 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(passport.initialize());
-passport.serializeUser(function(user, done) {
-  done(null, user);
-});
-
-passport.deserializeUser(function(user, done) {
-  done(null, user)
-});
 
 
 app.use('/', routes);
 app.use('/users', users);
 
-passport.use(new LinkedInStrategy({
-  clientID: process.env.LINKEDIN_KEY,
-  clientSecret: process.env.LINKEDIN_SECRET,
-  callbackURL: 'http://127.0.0.1:3000/auth/linkedin/callback',
-  scope: ['r_emailaddress', 'r_basicprofile'],
-}, function(accessToken, refreshToken, profile, done) {
-  process.nextTick(function(){
-    return done(null, profile)
-  })
-}));
+passport.serializeUser(function(user, done) {
+        done(null, user.id);
+    });
+
+    // used to deserialize the user
+passport.deserializeUser(function(id, done) {
+        User.findById(id, function(err, user) {
+            done(err, user);
+        });
+      });
+
+passport.use(new FacebookStrategy({
+ clientID: process.env.FB_ID,
+ clientSecret: process.env.FB_SECRET,
+ callbackURL: 'http://localhost:3000/auth/facebook/callback'
+},
+function(accessToken, refreshToken, profile, done) {
+ process.nextTick(function () {
+   return done(null, profile);
+ });
+ }
+));
 
 
-app.get('auth/linkedin/callback',
-  passport.authenticate('linkedin', {
-    successRedirect: '/',
-    failureRedirect:'/login'
-  }));
 
-app.get('/auth/linkedin',
-  passport.authenticate('linkedin', {state: 'SOME STATE'}),
+
+app.get('/auth/facebook',
+  passport.authenticate('facebook'));
+
+app.get('/auth/facebook/callback',
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
   function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/');
   });
-
-
-
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   var err = new Error('Not Found');
