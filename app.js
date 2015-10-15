@@ -1,12 +1,13 @@
-require('dotenv').load();
-var FacebookStrategy = require('passport-facebook').Strategy;
+    require('dotenv').load();
+    var FacebookStrategy = require('passport-facebook').Strategy;
 var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');  
-var passport = require('passport');
+    var passport = require('passport');
+    var cookieSession = require('cookie-session');
 
 
 
@@ -20,55 +21,84 @@ var app = express();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+
+
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cookieParser());
+    app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+    app.use(passport.initialize());
+    app.use(passport.session());
 
-app.use(passport.initialize());
+
+// Now add some middleware that will set the user local variable in all views:
+// right above app.use('/', routes);
+    // app.use(function (req, res, next) {
+    //   res.locals.user = req.user;
+    //   next();
+    // })
 
 
 app.use('/', routes);
 app.use('/users', users);
 
-passport.serializeUser(function(user, done) {
-        done(null, user.id);
-    });
+    app.use(cookieSession({
+      name: 'session',
+      keys: ['123', '456', '789']
+    }))
 
-    // used to deserialize the user
-passport.deserializeUser(function(id, done) {
-        User.findById(id, function(err, user) {
-            done(err, user);
+
+
+
+
+    passport.use(new FacebookStrategy({
+     clientID: process.env.FB_ID,
+     clientSecret: process.env.FB_SECRET,
+     callbackURL: 'http://localhost:3000/auth/facebook/callback'
+    },
+    function(accessToken, refreshToken, profile, done) {
+     process.nextTick(function () {
+      // console.log(profile);
+       return done(null, {name: profile.displayName});
+     });
+     }
+    )); 
+
+
+    passport.serializeUser(function(user, done) {
+            done(null, user);
         });
+
+        // used to deserialize the user
+    passport.deserializeUser(function(id, done) {
+            User.findById(id, function(err, user) {
+                done(err, user);
+            });
+          });
+
+
+    app.get('/auth/facebook',
+      // passport.authenticate('facebook'));
+    passport.authenticate('facebook', {authType: 'reauthenticate', callbackURL:'http://localhost:3000/auth/facebook/callback'}))
+
+    app.get('/auth/facebook/callback',
+      passport.authenticate('facebook', { failureRedirect: '/login' }),
+      function(req, res) {
+        // Successful authentication, redirect home.
+        res.redirect('/home');
       });
 
-passport.use(new FacebookStrategy({
- clientID: process.env.FB_ID,
- clientSecret: process.env.FB_SECRET,
- callbackURL: 'http://localhost:3000/auth/facebook/callback'
-},
-function(accessToken, refreshToken, profile, done) {
- process.nextTick(function () {
-   return done(null, profile);
- });
- }
-));
 
 
 
+    app.get('/logout', function(req, res, next) {
+      req.session = null;
+        res.redirect('/');
+      });
 
-app.get('/auth/facebook',
-  passport.authenticate('facebook'));
-
-app.get('/auth/facebook/callback',
-  passport.authenticate('facebook', { failureRedirect: '/login' }),
-  function(req, res) {
-    // Successful authentication, redirect home.
-    res.redirect('/');
-  });
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   var err = new Error('Not Found');
