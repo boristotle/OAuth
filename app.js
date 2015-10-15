@@ -7,7 +7,8 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');  
     var passport = require('passport');
-    var cookieSession = require('cookie-session');
+       var session = require('sessions')
+    var expressSession = require('express-session');
 
 
 
@@ -28,27 +29,27 @@ app.set('view engine', 'ejs');
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-    app.use(cookieParser());
+app.use(cookieParser());
+app.use(expressSession({
+    secret: '1234569',
+    name: 'hello',
+    proxy: true,
+    resave: true,
+    saveUninitialized: true
+}));
+  app.use(passport.initialize())
+        app.use(passport.session());
 app.use(express.static(path.join(__dirname, 'public')));
-    app.use(passport.initialize());
-    app.use(passport.session());
 
-
-// Now add some middleware that will set the user local variable in all views:
-// right above app.use('/', routes);
-    // app.use(function (req, res, next) {
-    //   res.locals.user = req.user;
-    //   next();
-    // })
+  app.use(function (req, res, next) {
+      res.locals.user = req.user;
+      next();
+    })
 
 
 app.use('/', routes);
 app.use('/users', users);
 
-    app.use(cookieSession({
-      name: 'session',
-      keys: ['123', '456', '789']
-    }))
 
 
 
@@ -60,8 +61,8 @@ app.use('/users', users);
      callbackURL: 'http://localhost:3000/auth/facebook/callback'
     },
     function(accessToken, refreshToken, profile, done) {
+       // console.log(profile);
      process.nextTick(function () {
-      // console.log(profile);
        return done(null, {name: profile.displayName});
      });
      }
@@ -73,10 +74,8 @@ app.use('/users', users);
         });
 
         // used to deserialize the user
-    passport.deserializeUser(function(id, done) {
-            User.findById(id, function(err, user) {
-                done(err, user);
-            });
+    passport.deserializeUser(function(user, done) {
+                done(null, user);
           });
 
 
